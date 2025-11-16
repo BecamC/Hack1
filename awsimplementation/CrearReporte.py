@@ -70,9 +70,12 @@ def lambda_handler(event, context):
         # ------------------------------
         # Guardar en DynamoDB
         # ------------------------------
-        dynamodb = boto3.resource("dynamodb")
-        table = dynamodb.Table(nombre_tabla)
-        response = table.put_item(Item=reporte)
+        try:
+            dynamodb = boto3.resource("dynamodb")
+            table = dynamodb.Table(nombre_tabla)
+            response = table.put_item(Item=reporte)
+        except Exception as e:
+            raise ValueError(f"Error al guardar el reporte en DynamoDB: {str(e)}")
 
         # ------------------------------
         # Log de éxito
@@ -95,8 +98,40 @@ def lambda_handler(event, context):
             })
         }
 
+    except ValueError as ve:
+        # Errores de validación o lógica de la aplicación
+        error_log = {
+            "mensaje": str(ve),
+            "input_event": event,
+            "traceback": traceback.format_exc()
+        }
+        print(json.dumps(_log_error(error_log)))
+        return {
+            "statusCode": 400,
+            "body": json.dumps({
+                "mensaje": "Error de validación",
+                "error": str(ve)
+            })
+        }
+
+    except boto3.exceptions.S3UploadFailedError as s3_error:
+        # Error en la interacción con servicios de AWS como DynamoDB, S3, etc.
+        error_log = {
+            "mensaje": str(s3_error),
+            "input_event": event,
+            "traceback": traceback.format_exc()
+        }
+        print(json.dumps(_log_error(error_log)))
+        return {
+            "statusCode": 500,
+            "body": json.dumps({
+                "mensaje": "Error en el servicio de almacenamiento",
+                "error": str(s3_error)
+            })
+        }
+
     except Exception as e:
-        # Log de error
+        # Catch all para otros tipos de errores
         error_log = {
             "mensaje": str(e),
             "input_event": event,
@@ -106,9 +141,9 @@ def lambda_handler(event, context):
         print(json.dumps(_log_error(error_log)))
 
         return {
-            "statusCode": 400,
+            "statusCode": 500,
             "body": json.dumps({
-                "mensaje": "Error al crear el reporte",
+                "mensaje": "Error inesperado",
                 "error": str(e)
             })
         }
