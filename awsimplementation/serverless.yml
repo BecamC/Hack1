@@ -23,7 +23,7 @@ functions:
     environment:
       CONNECTIONS_TABLE: Connections
       INCIDENTS_TABLE: Incidents
-      WS_ENDPOINT: !Sub "https://${WebsocketsApiRef}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}"
+      WS_ENDPOINT: !Sub "https://${WebsocketsApiRef}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/@connections"
 
   listar:
     handler: admin/ListarReportes.lambda_handler
@@ -78,7 +78,7 @@ functions:
     environment:
       CONNECTIONS_TABLE: Connections
       INCIDENTS_TABLE: Incidents
-      WS_ENDPOINT: !Sub "https://${WebsocketsApiRef}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}"
+      WS_ENDPOINT: !Sub "https://${WebsocketsApiRef}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/@connections"
 
 resources:
   Resources:

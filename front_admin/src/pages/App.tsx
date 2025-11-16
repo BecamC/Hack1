@@ -17,7 +17,7 @@ const API_BASE_URL =
 
 const WS_URL =
   import.meta.env.VITE_WS_URL ||
-  "wss://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com/dev" // <-- AQUI TU WS
+  "wss://nr6709dv4c.execute-api.us-east-1.amazonaws.com/dev"
 
 function App() {
   const TENANT_ID = "utec"
