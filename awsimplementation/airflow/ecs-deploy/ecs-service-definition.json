@@ -1,0 +1,38 @@
+{
+  "family": "airflow-task",
+  "executionRoleArn": "arn:aws:iam::804190897568:role/ecsTaskExecutionRole", 
+  "networkMode": "awsvpc",
+  "containerDefinitions": [
+    {
+      "name": "airflow",
+      "image": "804190897568.dkr.ecr.us-east-1.amazonaws.com/hackathon:latest",  
+      "memory": 512,
+      "cpu": 256, 
+      "essential": true,
+      "environment": [
+        {
+          "name": "S3_BUCKET_NAME",
+          "value": "diegolde-apache-bucket"
+        },
+        {
+          "name": "SUBNET_ID_1",
+          "value": "subnet-abc123"  
+        },
+        {
+          "name": "SUBNET_ID_2",
+          "value": "subnet-def456"
+        },
+        {
+          "name": "SOURCE_BUCKET_ARN",
+          "value": "arn:aws:s3:::diegolde-apache-bucket"
+        }
+      ],
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "hostPort": 8080
+        }
+      ]
+    }
+  ]
+}
