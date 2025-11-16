@@ -27,9 +27,17 @@ a:hover {
 body {
   margin: 0;
   display: flex;
-  place-items: center;
+  /* Center content horizontally, start at top vertically */
+  justify-content: center;
+  align-items: flex-start;
   min-width: 320px;
   min-height: 100vh;
+  /* give some vertical breathing room so the page isn't flush to the top */
+  padding: 2rem 0;
+  background-image: url(https://front-user-imagenes.s3.us-east-1.amazonaws.com/utec_fondo.jpg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 h1 {
