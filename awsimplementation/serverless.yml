@@ -70,6 +70,15 @@ functions:
     environment:
       CONNECTIONS_TABLE: Connections
 
+  default:
+    handler: socket/default.lambda_handler
+    events:
+      - websocket:
+          route: $default
+    environment:
+      CONNECTIONS_TABLE: Connections
+      INCIDENTS_TABLE: Incidents
+
 resources:
   Resources:
     WebsocketsApi:
