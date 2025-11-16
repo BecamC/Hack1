@@ -13,7 +13,7 @@ provider:
 
 functions:
   crear:
-    handler: user/CrearReporte.lambda_handler
+    handler: CrearReporte.lambda_handler
     events:
       - http:
           path: /reporte/crear
@@ -25,7 +25,7 @@ functions:
       INCIDENTS_TABLE: Incidents
 
   listar:
-    handler: admin/ListarReportes.lambda_handler
+    handler: ListarReportes.lambda_handler
     events:
       - http:
           path: /reporte/listar
@@ -34,7 +34,7 @@ functions:
           integration: lambda
 
   obtener:
-    handler: admin/ObtenerReporte.lambda_handler
+    handler: ObtenerReporte.lambda_handler
     events:
       - http:
           path: /reporte/{uuid}
@@ -43,7 +43,7 @@ functions:
           integration: lambda
 
   eliminar:
-    handler: admin/EliminarReporte.lambda_handler
+    handler: EliminarReporte.lambda_handler
     events:
       - http:
           path: /reporte/{uuid} 
