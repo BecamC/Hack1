@@ -1,4 +1,4 @@
-org: diegoladrondeg
+org: gianaedo
 service: awsimplementation-reportes
 
 provider:
@@ -7,7 +7,7 @@ provider:
   memorySize: 1024
   timeout: 30
   iam:
-    role: arn:aws:iam::611279748182:role/LabRole
+    role: arn:aws:iam::866725828595:role/LabRole
   environment:
     TABLE_NAME: ${sls:stage}-t_reportes
 
