@@ -40,7 +40,7 @@ def send_ws_message(message):
 def lambda_handler(event, context):
     try:
         body = json.loads(event.get("body", "{}"))
-        required = ["tipo_incidente", "nivel_urgencia", "ubicacion", "tipo_usuario", "descripcion"]
+        required = ["tipo_incidente", "ubicacion", "tipo_usuario", "descripcion"]
 
         missing = [x for x in required if x not in body]
         if missing:
@@ -48,12 +48,15 @@ def lambda_handler(event, context):
 
         uuidv4 = str(uuid.uuid4())
         tenant_id = body.get("tenant_id", "utec")
+        
+        # nivel_urgencia es opcional, con valor por defecto
+        nivel_urgencia = body.get("nivel_urgencia", "media")
 
         incidente = {
             "uuid": uuidv4,
             "tenant_id": tenant_id,
             "tipo_incidente": body["tipo_incidente"],
-            "nivel_urgencia": body["nivel_urgencia"],
+            "nivel_urgencia": nivel_urgencia,
             "ubicacion": body["ubicacion"],
             "tipo_usuario": body["tipo_usuario"],
             "descripcion": body["descripcion"],

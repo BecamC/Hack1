@@ -23,7 +23,6 @@ functions:
     environment:
       CONNECTIONS_TABLE: Connections
       INCIDENTS_TABLE: Incidents
-      WS_ENDPOINT: !Sub "https://${WebsocketsApiRef}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/@connections"
 
   listar:
     handler: admin/ListarReportes.lambda_handler
@@ -47,64 +46,34 @@ functions:
     handler: admin/EliminarReporte.lambda_handler
     events:
       - http:
-          path: /reporte/{uuid}
+          path: /reporte/{uuid} 
           method: delete
           cors: true
           integration: lambda
 
-  # WebSocket Functions
+  # WebSocket Lambda Functions (sin eventos - los configurarás manualmente en API Gateway)
   connect:
-    handler: socket/connect.lambda_handler
-    events:
-      - websocket:
-          route: $connect
+    handler: connect.lambda_handler
     environment:
       CONNECTIONS_TABLE: Connections
       INCIDENTS_TABLE: Incidents
 
   disconnect:
-    handler: socket/disconnect.lambda_handler
-    events:
-      - websocket:
-          route: $disconnect
+    handler: disconnect.lambda_handler
     environment:
       CONNECTIONS_TABLE: Connections
 
   default:
-    handler: socket/default.lambda_handler
-    events:
-      - websocket:
-          route: $default
+    handler: default.lambda_handler
     environment:
       CONNECTIONS_TABLE: Connections
       INCIDENTS_TABLE: Incidents
-      WS_ENDPOINT: !Sub "https://${WebsocketsApiRef}.execute-api.${AWS::Region}.amazonaws.com/${sls:stage}/@connections"
 
 resources:
   Resources:
 
     #########################################
-    # 1. WebSocket API
-    #########################################
-    WebsocketsApi:
-      Type: AWS::ApiGatewayV2::Api
-      Properties:
-        Name: ${self:service}-websocket-${sls:stage}
-        ProtocolType: WEBSOCKET
-        RouteSelectionExpression: "$request.body.action"
-
-    #########################################
-    # 1.1 REFERENCIA REAL PARA GENERAR ENDPOINT CORRECTO
-    #########################################
-    WebsocketsApiRef:
-      Type: AWS::ApiGatewayV2::Api
-      Properties:
-        Name: websocket-api-ref-${sls:stage}
-        ProtocolType: WEBSOCKET
-        RouteSelectionExpression: "$request.body.action"
-
-    #########################################
-    # 2. DynamoDB Tables
+    # DynamoDB Tables
     #########################################
     ReportesDynamoDBTable:
       Type: AWS::DynamoDB::Table
@@ -139,9 +108,9 @@ resources:
       Properties:
         TableName: Incidents
         AttributeDefinitions:
-          - AttributeName: id
+          - AttributeName: uuid
             AttributeType: S
         KeySchema:
-          - AttributeName: id
+          - AttributeName: uuid
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST
