@@ -13,7 +13,7 @@ provider:
 
 functions:
   crear:
-    handler: ../CrearReporte.lambda_handler
+    handler: user/CrearReporte.lambda_handler
     events:
       - http:
           path: /reporte/crear
@@ -22,16 +22,16 @@ functions:
           integration: lambda
 
   listar:
-    handler: ../ListarReportes.lambda_handler
+    handler: admin/ListarReportes.lambda_handler
     events:
       - http:
-          path: /reporte/listar   # <<✔ corregido
+          path: /reporte/listar
           method: get
           cors: true
           integration: lambda
 
   obtener:
-    handler: ../ObtenerReporte.lambda_handler
+    handler: admin/ObtenerReporte.lambda_handler
     events:
       - http:
           path: /reporte/{uuid}
@@ -40,7 +40,7 @@ functions:
           integration: lambda
 
   eliminar:
-    handler: ../EliminarReporte.lambda_handler
+    handler: admin/EliminarReporte.lambda_handler
     events:
       - http:
           path: /reporte/{uuid}
