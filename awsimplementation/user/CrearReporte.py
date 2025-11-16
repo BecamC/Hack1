@@ -1,42 +1,21 @@
+import requests
+import json
 import boto3
 import uuid
 import os
 import traceback
 
-# ------------------------------
-# Helpers de logs
-# ------------------------------
-def _log_info(data):
-    return {"tipo": "INFO", "log_datos": data}
+# URL de la API REST de Airflow
+AIRFLOW_API_URL = "http://<airflow-instance-url>/api/v1/dags/your_dag_id/dagRuns"
 
-def _log_error(data):
-    return {"tipo": "ERROR", "log_datos": data}
-
-# ------------------------------
-# Handler principal
-# ------------------------------
 def lambda_handler(event, context):
     try:
-        # Normalizar el body (API Gateway manda string)
-        if isinstance(event.get("body"), str):
-            body = json.loads(event["body"])
-        else:
-            body = event.get("body")
-
+        # Normalización del body
+        body = json.loads(event["body"]) if isinstance(event.get("body"), str) else event.get("body")
         if body is None:
             raise ValueError("No se recibió 'body' en el evento.")
 
-        # ------------------------------
-        # Validación de campos obligatorios
-        # ------------------------------
-        required_fields = [
-            "tipo_incidente",
-            "nivel_urgencia",
-            "ubicacion",
-            "tipo_usuario",
-            "descripcion"
-        ]
-
+        required_fields = ["tipo_incidente", "nivel_urgencia", "ubicacion", "tipo_usuario", "descripcion"]
         missing = [f for f in required_fields if f not in body]
         if missing:
             raise ValueError(f"Faltan campos obligatorios: {', '.join(missing)}")
@@ -48,16 +27,14 @@ def lambda_handler(event, context):
         tipo_usuario = body["tipo_usuario"]
         descripcion = body["descripcion"]
 
-        nombre_tabla = os.environ["TABLE_NAME"]
-
-        # ------------------------------
-        # Construcción del item
-        # ------------------------------
+        # Guardar en DynamoDB
+        dynamodb = boto3.resource("dynamodb")
+        table = dynamodb.Table(os.environ["TABLE_NAME"])
         uuidv4 = str(uuid.uuid4())
 
         reporte = {
-            "tenant_id": tenant_id,   # HASH KEY
-            "uuid": uuidv4,           # RANGE KEY
+            "tenant_id": tenant_id,
+            "uuid": uuidv4,
             "tipo_incidente": tipo_incidente,
             "nivel_urgencia": nivel_urgencia,
             "ubicacion": ubicacion,
@@ -65,83 +42,39 @@ def lambda_handler(event, context):
             "descripcion": descripcion
         }
 
-        # ------------------------------
-        # Guardar en DynamoDB
-        # ------------------------------
-        try:
-            dynamodb = boto3.resource("dynamodb")
-            table = dynamodb.Table(nombre_tabla)
-            response = table.put_item(Item=reporte)
-        except Exception as e:
-            raise ValueError(f"Error al guardar el reporte en DynamoDB: {str(e)}")
+        response = table.put_item(Item=reporte)
 
-        # ------------------------------
-        # Log de éxito
-        # ------------------------------
-        print(json.dumps(_log_info({
-            "mensaje": "Reporte creado correctamente",
-            "request_id": context.aws_request_id,
-            "reporte": reporte
-        })))
+        # Llamar a Apache Airflow para clasificar el incidente
+        airflow_payload = {
+            "conf": {
+                "tenant_id": tenant_id,
+                "uuid": uuidv4,
+                "descripcion": descripcion
+            }
+        }
 
-        # ------------------------------
-        # Respuesta HTTP
-        # ------------------------------
+        airflow_response = requests.post(
+            AIRFLOW_API_URL,
+            data=json.dumps(airflow_payload),
+            headers={"Content-Type": "application/json"}
+        )
+
+        if airflow_response.status_code != 200:
+            raise ValueError(f"Error al invocar Airflow: {airflow_response.text}")
+
         return {
             "statusCode": 200,
             "body": json.dumps({
-                "mensaje": "Reporte creado",
+                "mensaje": "Reporte creado y clasificado",
                 "reporte": reporte,
                 "put_response": response
             })
         }
 
     except ValueError as ve:
-        # Errores de validación o lógica de la aplicación
-        error_log = {
-            "mensaje": str(ve),
-            "input_event": event,
-            "traceback": traceback.format_exc()
-        }
-        print(json.dumps(_log_error(error_log)))
-        return {
-            "statusCode": 400,
-            "body": json.dumps({
-                "mensaje": "Error de validación",
-                "error": str(ve)
-            })
-        }
-
-    except boto3.exceptions.S3UploadFailedError as s3_error:
-        # Error en la interacción con servicios de AWS como DynamoDB, S3, etc.
-        error_log = {
-            "mensaje": str(s3_error),
-            "input_event": event,
-            "traceback": traceback.format_exc()
-        }
-        print(json.dumps(_log_error(error_log)))
-        return {
-            "statusCode": 500,
-            "body": json.dumps({
-                "mensaje": "Error en el servicio de almacenamiento",
-                "error": str(s3_error)
-            })
-        }
+        error_log = {"mensaje": str(ve), "input_event": event, "traceback": traceback.format_exc()}
+        return {"statusCode": 400, "body": json.dumps({"mensaje": "Error de validación", "error": str(ve)})}
 
     except Exception as e:
-        # Catch all para otros tipos de errores
-        error_log = {
-            "mensaje": str(e),
-            "input_event": event,
-            "traceback": traceback.format_exc()
-        }
-
-        print(json.dumps(_log_error(error_log)))
-
-        return {
-            "statusCode": 500,
-            "body": json.dumps({
-                "mensaje": "Error inesperado",
-                "error": str(e)
-            })
-        }
+        error_log = {"mensaje": str(e), "input_event": event, "traceback": traceback.format_exc()}
+        return {"statusCode": 500, "body": json.dumps({"mensaje": "Error inesperado", "error": str(e)})}

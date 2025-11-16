@@ -1,0 +1,7 @@
+boto3
+pandas
+openpyxl
+slack_sdk
+sendgrid
+apache-airflow-providers-slack
+apache-airflow-providers-sendgrid
