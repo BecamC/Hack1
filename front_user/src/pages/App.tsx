@@ -9,7 +9,20 @@ interface Incident {
   rol: string
 }
 
+interface BackendPayload {
+  tenant_id: string
+  tipo_incidente: string
+  nivel_urgencia: string
+  ubicacion: string
+  tipo_usuario: string
+  descripcion: string
+}
+
 function App() {
+
+  const API_URL =
+    "https://4iyael92qd.execute-api.us-east-1.amazonaws.com/dev/reporte/crear"
+
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [showForm, setShowForm] = useState<boolean>(false)
 
@@ -22,16 +35,64 @@ function App() {
     rol: ""
   })
 
-  const handleAddIncident = () => {
+  // ==============================
+  // API CALL
+  // ==============================
+  async function crearIncidente(data: BackendPayload) {
+    try {
+      const resp = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      })
+
+      if (!resp.ok) {
+        const text = await resp.text()
+        console.error("API error:", resp.status, text)
+        throw new Error(`API request failed: ${resp.status}`)
+      }
+
+      const json = await resp.json()
+      return json
+    } catch (err) {
+      console.error("Failed to crearIncidente:", err)
+      throw err
+    }
+  }
+
+  // ==============================
+  // ADD INCIDENT
+  // ==============================
+  const handleAddIncident = async () => {
     const { tipo, ubicacion, descripcion, urgencia, rol } = formData
 
-    if (!tipo || !ubicacion || !descripcion || !urgencia || !rol) return
+    if (!tipo || !ubicacion || !descripcion || !urgencia || !rol) {
+      alert("Completa todos los campos")
+      return
+    }
 
-    setIncidents(prev => [
-      ...prev,
-      { ...formData, id: Date.now() }
-    ])
+    // Construir el JSON exacto que tu Lambda espera
+    const payload: BackendPayload = {
+      tenant_id: "uted", // tu tenant real
+      tipo_incidente: tipo,
+      nivel_urgencia: urgencia,
+      ubicacion: ubicacion,
+      tipo_usuario: rol,
+      descripcion: descripcion
+    }
 
+    // Guardar en UI local
+    const newIncident: Incident = { ...formData, id: Date.now() }
+    setIncidents((prev) => [...prev, newIncident])
+
+    // Intentar enviar al backend
+    try {
+      await crearIncidente(payload)
+    } catch (err) {
+      alert("No se pudo enviar el reporte al servidor.")
+    }
+
+    // Limpiar formulario
     setFormData({
       id: 0,
       tipo: "",
