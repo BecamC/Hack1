@@ -13,11 +13,11 @@ interface Reporte {
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
-  "https://4iyael92qd.execute-api.us-east-1.amazonaws.com/dev"
+  "https://rofmf63op0.execute-api.us-east-1.amazonaws.com/dev"
 
 const WS_URL =
   import.meta.env.VITE_WS_URL ||
-  "wss://nr6709dv4c.execute-api.us-east-1.amazonaws.com/dev"
+  "wss://2699m6dbfh.execute-api.us-east-1.amazonaws.com/dev"
 
 function App() {
   const TENANT_ID = "utec"

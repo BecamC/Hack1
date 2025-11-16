@@ -18,8 +18,8 @@ interface BackendPayload {
 
 function App() {
 
-  const API_URL = "https://dnli7p9e2d.execute-api.us-east-1.amazonaws.com/dev/reporte/crear"  
-  const WS_URL = "wss://nr6709dv4c.execute-api.us-east-1.amazonaws.com/dev"
+  const API_URL = "https://rofmf63op0.execute-api.us-east-1.amazonaws.com/dev/reporte/crear"  
+  const WS_URL = "wss://2699m6dbfh.execute-api.us-east-1.amazonaws.com/dev"
 
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [isConnected, setIsConnected] = useState<boolean>(false)

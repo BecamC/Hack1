@@ -6,36 +6,11 @@ import os
 import traceback
 
 dynamodb = boto3.resource("dynamodb")
-incidents_table = dynamodb.Table(os.environ.get("INCIDENTS_TABLE", "Incidents"))
+table_name = os.environ.get("TABLE_NAME", "dev-t_reportes")
+reportes_table = dynamodb.Table(table_name)
 connections_table = dynamodb.Table(os.environ.get("CONNECTIONS_TABLE", "Connections"))
 
 AIRFLOW_API_URL = "http://<airflow-instance-url>/api/v1/dags/your_dag_id/dagRuns"
-
-def send_ws_message(message):
-    """Envia mensaje a todos los WebSockets conectados"""
-    ws_endpoint = os.environ.get("WS_ENDPOINT")
-    if not ws_endpoint:
-        print("WARNING: WS_ENDPOINT no configurado, no se enviará mensaje WebSocket")
-        return
-    
-    api = boto3.client(
-        "apigatewaymanagementapi",
-        endpoint_url=ws_endpoint
-    )
-
-    # Obtener todas las conexiones activas
-    result = connections_table.scan()
-    connections = result.get("Items", [])
-
-    for conn in connections:
-        try:
-            api.post_to_connection(
-                ConnectionId=conn["connectionId"],
-                Data=json.dumps(message).encode("utf-8")
-            )
-        except Exception as e:
-            print(f"Conexión caída {conn['connectionId']}, eliminando...")
-            connections_table.delete_item(Key={"connectionId": conn["connectionId"]})
 
 def lambda_handler(event, context):
     try:
@@ -52,7 +27,7 @@ def lambda_handler(event, context):
         # nivel_urgencia es opcional, con valor por defecto
         nivel_urgencia = body.get("nivel_urgencia", "media")
 
-        incidente = {
+        reporte = {
             "uuid": uuidv4,
             "tenant_id": tenant_id,
             "tipo_incidente": body["tipo_incidente"],
@@ -63,21 +38,33 @@ def lambda_handler(event, context):
             "estado": "pendiente"
         }
 
-        # Guardar en DynamoDB
-        incidents_table.put_item(Item=incidente)
-
-        # Llamar Airflow
-        airflow_payload = {"conf": {"uuid": uuidv4, "descripcion": body["descripcion"]}}
-        airflow_res = requests.post(AIRFLOW_API_URL, json=airflow_payload)
-
-        if airflow_res.status_code not in [200, 201]:
-            raise Exception(f"Airflow error: {airflow_res.text}")
+        # Guardar en dev-t_reportes
+        reportes_table.put_item(Item=reporte)
 
         # Notificar por WebSocket a todos los administradores
-        send_ws_message({
-            "type": "newIncident",
-            "incident": incidente
-        })
+        domain = event["requestContext"]["domainName"]
+        stage = event["requestContext"]["stage"]
+        ws_endpoint = f"https://{domain}/{stage}"
+        
+        try:
+            api = boto3.client("apigatewaymanagementapi", endpoint_url=ws_endpoint)
+            connections = connections_table.scan().get("Items", [])
+            
+            message = {
+                "type": "nuevoReporte",
+                "data": reporte
+            }
+            
+            for conn in connections:
+                try:
+                    api.post_to_connection(
+                        ConnectionId=conn["connectionId"],
+                        Data=json.dumps(message)
+                    )
+                except Exception as e:
+                    print(f"Error enviando a {conn['connectionId']}: {str(e)}")
+        except Exception as e:
+            print(f"Warning: No se pudo notificar por WebSocket: {str(e)}")
 
         return {"statusCode": 200, "body": json.dumps({"mensaje": "Reporte creado", "uuid": uuidv4})}
 

@@ -22,7 +22,6 @@ functions:
           integration: lambda
     environment:
       CONNECTIONS_TABLE: Connections
-      INCIDENTS_TABLE: Incidents
 
   listar:
     handler: ListarReportes.lambda_handler
@@ -59,7 +58,7 @@ functions:
           route: $connect
     environment:
       CONNECTIONS_TABLE: Connections
-      INCIDENTS_TABLE: Incidents
+      TABLE_NAME: ${self:provider.environment.TABLE_NAME}
 
   disconnect:
     handler: disconnect.lambda_handler
@@ -76,7 +75,7 @@ functions:
           route: $default
     environment:
       CONNECTIONS_TABLE: Connections
-      INCIDENTS_TABLE: Incidents
+      TABLE_NAME: ${self:provider.environment.TABLE_NAME}
 
 resources:
   Resources:
@@ -109,17 +108,5 @@ resources:
             AttributeType: S
         KeySchema:
           - AttributeName: connectionId
-            KeyType: HASH
-        BillingMode: PAY_PER_REQUEST
-
-    IncidentsTable:
-      Type: AWS::DynamoDB::Table
-      Properties:
-        TableName: Incidents
-        AttributeDefinitions:
-          - AttributeName: uuid
-            AttributeType: S
-        KeySchema:
-          - AttributeName: uuid
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST
