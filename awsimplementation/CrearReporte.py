@@ -6,7 +6,7 @@ import os
 import traceback
 
 dynamodb = boto3.resource("dynamodb")
-table_name = os.environ.get("TABLE_NAME", "dev-t_reportes")
+table_name = os.environ.get("TABLE_NAME", "-t_reportes")
 reportes_table = dynamodb.Table(table_name)
 connections_table = dynamodb.Table(os.environ.get("CONNECTIONS_TABLE", "Connections"))
 
@@ -40,32 +40,6 @@ def lambda_handler(event, context):
 
         # Guardar en dev-t_reportes
         reportes_table.put_item(Item=reporte)
-
-        # Notificar por WebSocket a todos los administradores
-        domain = event["requestContext"]["domainName"]
-        stage = event["requestContext"]["stage"]
-        ws_endpoint = f"https://{domain}/{stage}"
-        
-        try:
-            api = boto3.client("apigatewaymanagementapi", endpoint_url=ws_endpoint)
-            connections = connections_table.scan().get("Items", [])
-            
-            message = {
-                "type": "nuevoReporte",
-                "data": reporte
-            }
-            
-            for conn in connections:
-                try:
-                    api.post_to_connection(
-                        ConnectionId=conn["connectionId"],
-                        Data=json.dumps(message)
-                    )
-                except Exception as e:
-                    print(f"Error enviando a {conn['connectionId']}: {str(e)}")
-        except Exception as e:
-            print(f"Warning: No se pudo notificar por WebSocket: {str(e)}")
-
         return {"statusCode": 200, "body": json.dumps({"mensaje": "Reporte creado", "uuid": uuidv4})}
 
     except Exception as e:
