@@ -11,10 +11,8 @@ def _log_error(data):
 
 def lambda_handler(event, context):
     try:
-        # Leer tenant_id desde query params
-        tenant_id = event.get("queryStringParameters", {}).get("tenant_id")
-        if not tenant_id:
-            raise ValueError("Debe enviar tenant_id como query param.")
+        # Leer tenant_id desde query params, usar "utec" por defecto
+        tenant_id = event.get("queryStringParameters", {}).get("tenant_id") or "utec"
 
         nombre_tabla = os.environ["TABLE_NAME"]
         dynamodb = boto3.resource("dynamodb")

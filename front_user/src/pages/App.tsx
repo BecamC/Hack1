@@ -73,7 +73,7 @@ function App() {
 
     // Construir el JSON exacto que tu Lambda espera
     const payload: BackendPayload = {
-      tenant_id: "uted", // tu tenant real
+      tenant_id: "utec",
       tipo_incidente: tipo,
       nivel_urgencia: urgencia,
       ubicacion: ubicacion,

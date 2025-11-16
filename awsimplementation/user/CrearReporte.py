@@ -31,7 +31,6 @@ def lambda_handler(event, context):
         # Validación de campos obligatorios
         # ------------------------------
         required_fields = [
-            "tenant_id",
             "tipo_incidente",
             "nivel_urgencia",
             "ubicacion",
@@ -43,7 +42,7 @@ def lambda_handler(event, context):
         if missing:
             raise ValueError(f"Faltan campos obligatorios: {', '.join(missing)}")
 
-        tenant_id = body["tenant_id"]
+        tenant_id = body.get("tenant_id", "utec")
         tipo_incidente = body["tipo_incidente"]
         nivel_urgencia = body["nivel_urgencia"]
         ubicacion = body["ubicacion"]

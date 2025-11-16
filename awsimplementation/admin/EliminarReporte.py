@@ -13,11 +13,9 @@ def lambda_handler(event, context):
     try:
         path_params = event.get("pathParameters") or {}
 
-        tenant_id = event.get("queryStringParameters", {}).get("tenant_id")
+        tenant_id = event.get("queryStringParameters", {}).get("tenant_id") or "utec"
         uuid = path_params.get("uuid")
 
-        if not tenant_id:
-            raise ValueError("Debe enviar tenant_id como query param.")
         if not uuid:
             raise ValueError("Debe enviar uuid en la ruta /reporte/{uuid}")
 
