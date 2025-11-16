@@ -1,7 +1,20 @@
+# Provider AWS
 provider "aws" {
-  region = "us-east-1"
+  region                  = "us-east-1"
   shared_credentials_files = ["~/.aws/credentials"]  # Aquí toma las credenciales de tu configuración local
-  profile = "default"  # Usa el perfil 'default' si ese es el que usas, o usa el nombre de tu perfil
+  profile                 = "default"  # Usa el perfil 'default' si ese es el que usas, o usa el nombre de tu perfil
+}
+
+# Declaración de variables
+
+variable "ami_id" {
+  description = "ID of the AMI to use for the environment"
+  type        = string
+}
+
+variable "source_bucket_arn" {
+  description = "ARN of the S3 bucket for Airflow DAGs"
+  type        = string
 }
 
 # VPC y Subredes
@@ -45,16 +58,20 @@ resource "aws_mwaa_environment" "example" {
   airflow_version          = "2.3.0"
   environment_class        = "mw1.medium"
   execution_role_arn       = "arn:aws:iam::804190897568:role/MyExistingMWAARole"  # El ARN de tu rol IAM ya existente
+
+  # Especifica la configuración de red
   network_configuration {
     subnet_ids              = [aws_subnet.subnet_1.id, aws_subnet.subnet_2.id]
     security_group_ids      = [aws_security_group.mwaa_sg.id]
   }
 
   # Especifica el bucket de S3 donde se encuentran los DAGs
+  source_bucket_arn        = var.source_bucket_arn  # Usamos la variable definida
+
   dag_s3_path              = "airflow/dags"        # Ruta donde están tus DAGs en S3
   airflow_configuration_options = {
-    "core.dag_concurrency" = "16"
-    "core.max_active_runs_per_dag" = "10"
+    "core.dag_concurrency"              = "16"
+    "core.max_active_runs_per_dag"      = "10"
   }
 
   # Configura el bucket donde están los requisitos de Python (requirements.txt)
