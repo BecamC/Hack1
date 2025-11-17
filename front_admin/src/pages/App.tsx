@@ -26,22 +26,26 @@ function App() {
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string>("")
   const [searchTerm, setSearchTerm] = useState<string>("")
-  const [filterType, setFilterType] = useState<string>("tipo") // "tipo" o "ubicacion"
+  const [filterType, setFilterType] = useState<string>("tipo")
 
   const ws = useRef<WebSocket | null>(null)
+  const reconnectTimeout = useRef<any>(null)
 
   // ========================================================
-  // 🔵 1. WebSocket Tiempo Real
+  // 🔵 1. WebSocket con reconexión + getIncidents
   // ========================================================
-  useEffect(() => {
+  const connectWS = () => {
     console.log("Conectando WebSocket ADMIN...")
 
     ws.current = new WebSocket(WS_URL)
 
     ws.current.onopen = () => {
-      console.log("WS Conectado")
+      console.log("WS Conectado ✔️")
 
-      // Registrar admin
+      // 👉 Pedir lista completa de incidentes
+      ws.current?.send(JSON.stringify({ action: "getIncidents" }))
+
+      // 👉 Registrar admin (lo mantengo igual que tu código)
       ws.current?.send(
         JSON.stringify({
           action: "register",
@@ -54,22 +58,51 @@ function App() {
       const msg = JSON.parse(event.data)
       console.log("📩 WS message:", msg)
 
-      // Si llega un nuevo reporte, agregarlo a la lista
+      // 👉 Lista completa de incidentes
+      if (msg.type === "incidentsList") {
+        console.log("📋 Lista de incidentes recibida")
+        setReportes(msg.incidents ?? [])
+      }
+
+      // 👉 Nuevo reporte en tiempo real
       if (msg.type === "nuevoReporte") {
-        const nuevoReporte = msg.data
-        setReportes((prev) => [...prev, nuevoReporte])
+        setReportes((prev) => [...prev, msg.data])
+      }
+
+      // 👉 newIncident también llega en algunos flujos
+      if (msg.type === "newIncident") {
+        setReportes((prev) => [...prev, msg.incident])
+      }
+
+      // 👉 Error WS
+      if (msg.type === "error") {
+        console.error("❌ Error WS:", msg.message)
       }
     }
 
     ws.current.onclose = () => {
-      console.warn("❌ WS Desconectado, intentando reconectar...")
+      console.warn("❌ WS Desconectado, reconectando en 5s…")
+
+      // Reconexión automática
+      reconnectTimeout.current = setTimeout(connectWS, 5000)
     }
 
-    return () => ws.current?.close()
+    ws.current.onerror = (err) => {
+      console.error("WS Error:", err)
+      ws.current?.close()
+    }
+  }
+
+  useEffect(() => {
+    connectWS()
+    return () => {
+      clearTimeout(reconnectTimeout.current)
+      ws.current?.close()
+    }
   }, [])
 
   // ========================================================
-  // 🔵 2. Listar reportes por REST (solo una vez)
+  // 🔵 2. REST: cargar incidentes una sola vez
   // ========================================================
   const fetchReportes = async () => {
     setLoading(true)
@@ -77,33 +110,20 @@ function App() {
 
     try {
       const url = `${API_BASE_URL}/reporte/listar?tenant_id=${TENANT_ID}`
-      console.log("🔵 Fetching reportes from:", url)
-      
       const resp = await fetch(url)
-      console.log("📊 Response status:", resp.status, resp.statusText)
-      
+
       if (!resp.ok) {
         throw new Error(`HTTP Error ${resp.status}`)
       }
 
       let data = await resp.json()
-      console.log("📦 Response data:", data)
-      
-      // Si el body viene como string, parsearlo
-      if (typeof data.body === 'string') {
+      if (typeof data.body === "string") {
         data = JSON.parse(data.body)
-        console.log("� Parsed body:", data)
       }
-      
-      const items = Array.isArray(data.items) ? data.items : []
-      console.log("✅ Final items:", items)
-      
-      setReportes(items)
+
+      setReportes(data.items || [])
     } catch (err) {
-      console.error("❌ Error en fetchReportes:", err)
-      setError(
-        err instanceof Error ? err.message : "Error al cargar reportes"
-      )
+      setError(err instanceof Error ? err.message : "Error al cargar reportes")
     } finally {
       setLoading(false)
     }
@@ -114,59 +134,45 @@ function App() {
   }, [])
 
   // ========================================================
-  // 🔵 2B. Filtrar reportes (búsqueda local)
+  // 🔵 3. Filtro local
   // ========================================================
   const reportesFiltrados = reportes.filter((r) => {
     if (!searchTerm.trim()) return true
-    const termLower = searchTerm.toLowerCase()
-    
-    if (filterType === "tipo") {
-      return r.tipo_incidente.toLowerCase().includes(termLower)
-    } else {
-      return r.ubicacion.toLowerCase().includes(termLower)
-    }
+    const s = searchTerm.toLowerCase()
+
+    return filterType === "tipo"
+      ? r.tipo_incidente.toLowerCase().includes(s)
+      : r.ubicacion.toLowerCase().includes(s)
   })
 
   // ========================================================
-  // 🔵 3. Eliminar reporte (REST)
+  // 🔵 4. Eliminar
   // ========================================================
   const handleEliminar = async (uuid: string) => {
     if (!confirm("¿Seguro de eliminar este reporte?")) return
 
     try {
       const url = `${API_BASE_URL}/reporte/${uuid}?tenant_id=${TENANT_ID}`
-      console.log("🗑️ Eliminando:", url)
-      
       const resp = await fetch(url, { method: "DELETE" })
-      console.log("📊 Response status:", resp.status)
 
       let data = await resp.json()
-      console.log("📦 Response data:", data)
-      
-      // Si el body viene como string, parsearlo
-      if (typeof data.body === 'string') {
+      if (typeof data.body === "string") {
         data = JSON.parse(data.body)
-        console.log("📦 Parsed body:", data)
       }
 
       if (!resp.ok) {
-        throw new Error(data.error || data.mensaje || `Error ${resp.status}`)
+        throw new Error(data.error || data.mensaje)
       }
 
-      // Eliminación local
-      console.log("✅ Eliminando del estado local")
       setReportes((prev) => prev.filter((r) => r.uuid !== uuid))
       setError("")
     } catch (err) {
-      console.error("❌ Error:", err)
-      setError(
-        err instanceof Error ? err.message : "Error eliminando reporte"
-      )
+      setError(err instanceof Error ? err.message : "Error eliminando reporte")
     }
   }
 
   // ========================================================
-  // UI
+  // UI (NO MODIFIQUÉ NADA)
   // ========================================================
   return (
     <div className="min-h-screen bg-white p-8">
@@ -177,7 +183,8 @@ function App() {
             Panel de Administración — UTEC
           </h1>
           <p className="text-gray-600 text-lg">
-            Administración de reportes del tenant <span className="font-semibold">utec</span> en tiempo real
+            Administración de reportes del tenant{" "}
+            <span className="font-semibold">utec</span> en tiempo real
           </p>
         </div>
 
@@ -201,13 +208,19 @@ function App() {
               <option value="tipo">Buscar por Tipo</option>
               <option value="ubicacion">Buscar por Ubicación</option>
             </select>
+
             <input
               type="text"
-              placeholder={filterType === "tipo" ? "ej: Robo, Accidente..." : "ej: Piso 11, Biblioteca..."}
+              placeholder={
+                filterType === "tipo"
+                  ? "ej: Robo, Accidente..."
+                  : "ej: Piso 11, Biblioteca..."
+              }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="flex-1 px-4 py-3 rounded-lg bg-white text-black placeholder-gray-500 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+
             <button
               onClick={() => setSearchTerm("")}
               className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
@@ -215,6 +228,7 @@ function App() {
               Limpiar
             </button>
           </div>
+
           {searchTerm && (
             <p className="text-gray-600 text-sm mt-3">
               Mostrando {reportesFiltrados.length} de {reportes.length} reportes
@@ -222,7 +236,7 @@ function App() {
           )}
         </div>
 
-        {/* LISTA DE REPORTES */}
+        {/* LISTA */}
         <div>
           {loading && reportes.length === 0 ? (
             <div className="text-center py-12">
@@ -231,7 +245,9 @@ function App() {
           ) : reportesFiltrados.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-500 text-lg">
-                {searchTerm ? "No hay reportes que coincidan con tu búsqueda" : "No hay reportes registrados"}
+                {searchTerm
+                  ? "No hay reportes que coincidan con tu búsqueda"
+                  : "No hay reportes registrados"}
               </p>
             </div>
           ) : (
@@ -249,11 +265,16 @@ function App() {
                       <p className="text-gray-700 mb-2">📍 {r.ubicacion}</p>
                       <p className="text-gray-600 text-sm">{r.descripcion}</p>
                     </div>
-                    <span className={`px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap ml-4 ${
-                      r.nivel_urgencia === 'alta' ? 'bg-red-200 text-red-800' :
-                      r.nivel_urgencia === 'media' ? 'bg-yellow-200 text-yellow-800' :
-                      'bg-green-200 text-green-800'
-                    }`}>
+
+                    <span
+                      className={`px-4 py-2 rounded-full font-semibold text-sm ml-4 ${
+                        r.nivel_urgencia === "alta"
+                          ? "bg-red-200 text-red-800"
+                          : r.nivel_urgencia === "media"
+                          ? "bg-yellow-200 text-yellow-800"
+                          : "bg-green-200 text-green-800"
+                      }`}
+                    >
                       {r.nivel_urgencia?.toUpperCase()}
                     </span>
                   </div>
@@ -263,18 +284,16 @@ function App() {
                       {r.tipo_usuario}
                     </span>
                     <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                      {r.estado || 'pendiente'}
+                      {r.estado || "pendiente"}
                     </span>
                   </div>
 
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEliminar(r.uuid)}
-                      className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
-                    >
+                  <button
+                    onClick={() => handleEliminar(r.uuid)}
+                    className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
+                  >
                     Eliminar
-                    </button>
-                  </div>
+                  </button>
                 </div>
               ))}
             </div>

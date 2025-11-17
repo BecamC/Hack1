@@ -18,8 +18,8 @@ interface BackendPayload {
 
 function App() {
 
-  const API_URL = "https://rofmf63op0.execute-api.us-east-1.amazonaws.com/dev/reporte/crear"  
-  const WS_URL = "wss://2699m6dbfh.execute-api.us-east-1.amazonaws.com/dev"
+  const API_URL = "https://bjn3x9fv10.execute-api.us-east-1.amazonaws.com/dev/reporte/crear"  
+  const WS_URL = "wss://9uubdx8ktg.execute-api.us-east-1.amazonaws.com/dev"
 
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [isConnected, setIsConnected] = useState<boolean>(false)
@@ -318,7 +318,7 @@ function App() {
 
                   <button
                     onClick={() => setIncidents(prev => prev.filter(r => r.id !== inc.id))}
-                    className="text-red-600 hover:text-red-800 font-semibold"
+                    className="text-white-600 hover:text-white-800 font-semibold"
                   >
                     Eliminar
                   </button>
