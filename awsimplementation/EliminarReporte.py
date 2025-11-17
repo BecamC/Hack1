@@ -3,44 +3,38 @@ import os
 import json
 import traceback
 
-def _log_info(data):
-    return {"tipo": "INFO", "log_datos": data}
-
-def _log_error(data):
-    return {"tipo": "ERROR", "log_datos": data}
-
 def lambda_handler(event, context):
     try:
         path_params = event.get("pathParameters") or {}
+        query_params = event.get("queryStringParameters") or {}
 
-        tenant_id = event.get("queryStringParameters", {}).get("tenant_id") or "utec"
+        tenant_id = query_params.get("tenant_id") or "utec"
         uuid = path_params.get("uuid")
 
         if not uuid:
-            raise ValueError("Debe enviar uuid en la ruta /reporte/{uuid}")
+            return {
+                "statusCode": 400,
+                "body": json.dumps({"error": "Debe enviar uuid en la ruta /reporte/{uuid}"})
+            }
 
-        nombre_tabla = os.environ["TABLE_NAME"]
+        nombre_tabla = os.environ.get("TABLE_NAME", "dev-t_reportes")
         dynamodb = boto3.resource("dynamodb")
         table = dynamodb.Table(nombre_tabla)
 
-        # Validación previa
+        # Validación previa - verificar que existe
         existing = table.get_item(
             Key={"tenant_id": tenant_id, "uuid": uuid}
         )
         if "Item" not in existing:
-            raise ValueError("El reporte no existe o no pertenece al tenant.")
+            return {
+                "statusCode": 404,
+                "body": json.dumps({"error": "El reporte no existe"})
+            }
 
-        # Eliminación
+        # Eliminar
         table.delete_item(
             Key={"tenant_id": tenant_id, "uuid": uuid}
         )
-
-        print(json.dumps(_log_info({
-            "mensaje": "Reporte eliminado",
-            "tenant_id": tenant_id,
-            "uuid": uuid,
-            "request_id": context.aws_request_id
-        })))
 
         return {
             "statusCode": 200,
@@ -51,16 +45,10 @@ def lambda_handler(event, context):
         }
 
     except Exception as e:
-        print(json.dumps(_log_error({
-            "mensaje": str(e),
-            "input_event": event,
-            "traceback": traceback.format_exc()
-        })))
-
+        print(f"Error: {str(e)}")
+        traceback.print_exc()
+        
         return {
-            "statusCode": 400,
-            "body": json.dumps({
-                "mensaje": "Error al eliminar reporte",
-                "error": str(e)
-            })
+            "statusCode": 500,
+            "body": json.dumps({"error": str(e)})
         }

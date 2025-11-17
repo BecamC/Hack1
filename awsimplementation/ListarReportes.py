@@ -2,53 +2,45 @@ import boto3
 import os
 import json
 import traceback
-
-def _log_info(data):
-    return {"tipo": "INFO", "log_datos": data}
-
-def _log_error(data):
-    return {"tipo": "ERROR", "log_datos": data}
+from boto3.dynamodb.conditions import Key
 
 def lambda_handler(event, context):
     try:
-        # Leer tenant_id desde query params, usar "utec" por defecto
-        tenant_id = event.get("queryStringParameters", {}).get("tenant_id") or "utec"
+        # Obtener tenant_id desde query params
+        query_params = event.get("queryStringParameters") or {}
+        tenant_id = query_params.get("tenant_id") or "utec"
+        
+        print(f"Listando reportes para tenant: {tenant_id}")
 
-        nombre_tabla = os.environ["TABLE_NAME"]
+        nombre_tabla = os.environ.get("TABLE_NAME", "dev-t_reportes")
+        print(f"Usando tabla: {nombre_tabla}")
+        
         dynamodb = boto3.resource("dynamodb")
         table = dynamodb.Table(nombre_tabla)
 
         # Query por tenant_id (HASH KEY)
         response = table.query(
-            KeyConditionExpression=boto3.dynamodb.conditions.Key('tenant_id').eq(tenant_id)
+            KeyConditionExpression=Key('tenant_id').eq(tenant_id)
         )
 
-        print(json.dumps(_log_info({
-            "mensaje": "Consulta exitosa",
-            "tenant_id": tenant_id,
-            "total_items": len(response.get("Items", [])),
-            "request_id": context.aws_request_id
-        })))
+        items = response.get("Items", [])
+        print(f"Se encontraron {len(items)} reportes")
 
         return {
             "statusCode": 200,
             "body": json.dumps({
                 "mensaje": "Reportes obtenidos correctamente",
-                "items": response.get("Items", [])
+                "items": items
             })
         }
 
     except Exception as e:
-        print(json.dumps(_log_error({
-            "mensaje": str(e),
-            "input_event": event,
-            "traceback": traceback.format_exc()
-        })))
-
+        print(f"Error: {str(e)}")
+        traceback.print_exc()
+        
         return {
-            "statusCode": 400,
+            "statusCode": 500,
             "body": json.dumps({
-                "mensaje": "Error al listar reportes",
                 "error": str(e)
             })
         }

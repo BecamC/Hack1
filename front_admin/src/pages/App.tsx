@@ -13,11 +13,11 @@ interface Reporte {
 
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
-  "https://rofmf63op0.execute-api.us-east-1.amazonaws.com/dev"
+  "https://bjn3x9fv10.execute-api.us-east-1.amazonaws.com/dev"
 
 const WS_URL =
   import.meta.env.VITE_WS_URL ||
-  "wss://2699m6dbfh.execute-api.us-east-1.amazonaws.com/dev"
+  "wss://9uubdx8ktg.execute-api.us-east-1.amazonaws.com/dev"
 
 function App() {
   const TENANT_ID = "utec"
@@ -25,8 +25,8 @@ function App() {
   const [reportes, setReportes] = useState<Reporte[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string>("")
-  const [selectedReporte, setSelectedReporte] = useState<Reporte | null>(null)
-  const [showDetails, setShowDetails] = useState<boolean>(false)
+  const [searchTerm, setSearchTerm] = useState<string>("")
+  const [filterType, setFilterType] = useState<string>("tipo") // "tipo" o "ubicacion"
 
   const ws = useRef<WebSocket | null>(null)
 
@@ -54,36 +54,10 @@ function App() {
       const msg = JSON.parse(event.data)
       console.log("📩 WS message:", msg)
 
-      // ======================
-      // INCIDENTES INICIALES
-      // ======================
-      if (msg.type === "incidentsList") {
-        setReportes(msg.incidents)
-      }
-
-      // ======================
-      // NUEVO INCIDENTE
-      // ======================
-      if (msg.type === "newIncident") {
-        setReportes((prev) => [...prev, msg.incident])
-
-        // Si estás viendo detalles del mismo, actualiza
-        if (selectedReporte?.uuid === msg.incident.uuid) {
-          setSelectedReporte(msg.incident)
-        }
-      }
-
-      // ======================
-      // INCIDENTE ACTUALIZADO
-      // ======================
-      if (msg.type === "updateIncident") {
-        setReportes((prev) =>
-          prev.map((r) => (r.uuid === msg.incident.uuid ? msg.incident : r))
-        )
-
-        if (selectedReporte?.uuid === msg.incident.uuid) {
-          setSelectedReporte(msg.incident)
-        }
+      // Si llega un nuevo reporte, agregarlo a la lista
+      if (msg.type === "nuevoReporte") {
+        const nuevoReporte = msg.data
+        setReportes((prev) => [...prev, nuevoReporte])
       }
     }
 
@@ -92,7 +66,7 @@ function App() {
     }
 
     return () => ws.current?.close()
-  }, [selectedReporte])
+  }, [])
 
   // ========================================================
   // 🔵 2. Listar reportes por REST (solo una vez)
@@ -102,15 +76,31 @@ function App() {
     setError("")
 
     try {
-      const resp = await fetch(
-        `${API_BASE_URL}/reporte/listar?tenant_id=${TENANT_ID}`
-      )
+      const url = `${API_BASE_URL}/reporte/listar?tenant_id=${TENANT_ID}`
+      console.log("🔵 Fetching reportes from:", url)
+      
+      const resp = await fetch(url)
+      console.log("📊 Response status:", resp.status, resp.statusText)
+      
+      if (!resp.ok) {
+        throw new Error(`HTTP Error ${resp.status}`)
+      }
 
-      const data = await resp.json()
-      if (!resp.ok) throw new Error(data.error || data.mensaje)
-
-      setReportes(data.items || [])
+      let data = await resp.json()
+      console.log("📦 Response data:", data)
+      
+      // Si el body viene como string, parsearlo
+      if (typeof data.body === 'string') {
+        data = JSON.parse(data.body)
+        console.log("� Parsed body:", data)
+      }
+      
+      const items = Array.isArray(data.items) ? data.items : []
+      console.log("✅ Final items:", items)
+      
+      setReportes(items)
     } catch (err) {
+      console.error("❌ Error en fetchReportes:", err)
       setError(
         err instanceof Error ? err.message : "Error al cargar reportes"
       )
@@ -124,71 +114,54 @@ function App() {
   }, [])
 
   // ========================================================
-  // 🔵 3. Obtener detalles
+  // 🔵 2B. Filtrar reportes (búsqueda local)
   // ========================================================
-  const fetchReporteDetalle = async (uuid: string) => {
-    setLoading(true)
-    setError("")
-
-    try {
-      const resp = await fetch(
-        `${API_BASE_URL}/reporte/${uuid}?tenant_id=${TENANT_ID}`
-      )
-      const data = await resp.json()
-
-      if (!resp.ok) throw new Error(data.error || data.mensaje)
-
-      setSelectedReporte(data.item)
-      setShowDetails(true)
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Error al cargar el reporte"
-      )
-    } finally {
-      setLoading(false)
+  const reportesFiltrados = reportes.filter((r) => {
+    if (!searchTerm.trim()) return true
+    const termLower = searchTerm.toLowerCase()
+    
+    if (filterType === "tipo") {
+      return r.tipo_incidente.toLowerCase().includes(termLower)
+    } else {
+      return r.ubicacion.toLowerCase().includes(termLower)
     }
-  }
+  })
 
   // ========================================================
-  // 🔵 4. Eliminar reporte (REST)
+  // 🔵 3. Eliminar reporte (REST)
   // ========================================================
   const handleEliminar = async (uuid: string) => {
     if (!confirm("¿Seguro de eliminar este reporte?")) return
 
     try {
-      const resp = await fetch(
-        `${API_BASE_URL}/reporte/${uuid}?tenant_id=${TENANT_ID}`,
-        { method: "DELETE" }
-      )
+      const url = `${API_BASE_URL}/reporte/${uuid}?tenant_id=${TENANT_ID}`
+      console.log("🗑️ Eliminando:", url)
+      
+      const resp = await fetch(url, { method: "DELETE" })
+      console.log("📊 Response status:", resp.status)
 
-      const data = await resp.json()
-      if (!resp.ok) throw new Error(data.error || data.mensaje)
+      let data = await resp.json()
+      console.log("📦 Response data:", data)
+      
+      // Si el body viene como string, parsearlo
+      if (typeof data.body === 'string') {
+        data = JSON.parse(data.body)
+        console.log("📦 Parsed body:", data)
+      }
+
+      if (!resp.ok) {
+        throw new Error(data.error || data.mensaje || `Error ${resp.status}`)
+      }
 
       // Eliminación local
+      console.log("✅ Eliminando del estado local")
       setReportes((prev) => prev.filter((r) => r.uuid !== uuid))
-
-      if (selectedReporte?.uuid === uuid) {
-        setSelectedReporte(null)
-        setShowDetails(false)
-      }
+      setError("")
     } catch (err) {
-      setError("Error eliminando reporte")
-    }
-  }
-
-  // ========================================================
-  // ESTILO URGENCIA
-  // ========================================================
-  const getUrgenciaColor = (urgencia: string) => {
-    switch (urgencia?.toLowerCase()) {
-      case "alta":
-        return "text-red-700 bg-red-100"
-      case "media":
-        return "text-yellow-700 bg-yellow-100"
-      case "baja":
-        return "text-green-700 bg-green-100"
-      default:
-        return "text-gray-700 bg-gray-100"
+      console.error("❌ Error:", err)
+      setError(
+        err instanceof Error ? err.message : "Error eliminando reporte"
+      )
     }
   }
 
@@ -197,106 +170,116 @@ function App() {
   // ========================================================
   return (
     <div className="min-h-screen bg-white p-8">
-      <div className="max-w-4xl mx-auto mb-12">
-        <h1 className="text-4xl font-bold text-black mb-2">
-          Panel de Administración — UTEC
-        </h1>
-        <p className="text-gray-600">
-          Administración de reportes del tenant <b>utec</b> en tiempo real.
-        </p>
-      </div>
-
-      {/* ERROR */}
-      {error && (
-        <div className="max-w-4xl mx-auto bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
-          {error}
+      <div className="max-w-5xl mx-auto">
+        {/* HEADER */}
+        <div className="mb-12">
+          <h1 className="text-5xl font-black text-black mb-3">
+            Panel de Administración — UTEC
+          </h1>
+          <p className="text-gray-600 text-lg">
+            Administración de reportes del tenant <span className="font-semibold">utec</span> en tiempo real
+          </p>
         </div>
-      )}
 
-      {/* DETALLES */}
-      {showDetails && selectedReporte && (
-        <div className="max-w-4xl mx-auto mb-8 p-6 bg-gray-50 border rounded-lg">
-          <h2 className="text-lg font-semibold text-black mb-4">
-            Detalles del Reporte
-          </h2>
-
-          <p><b>UUID:</b> {selectedReporte.uuid}</p>
-          <p><b>Tipo:</b> {selectedReporte.tipo_incidente}</p>
-          <p><b>Urgencia:</b> {selectedReporte.nivel_urgencia}</p>
-          <p><b>Ubicación:</b> {selectedReporte.ubicacion}</p>
-          <p><b>Usuario:</b> {selectedReporte.tipo_usuario}</p>
-          <p><b>Descripción:</b> {selectedReporte.descripcion}</p>
-          <p><b>Estado:</b> {selectedReporte.estado || "pendiente"}</p>
-
-          <div className="flex gap-3 mt-4">
-            <button
-              onClick={() => handleEliminar(selectedReporte.uuid)}
-              className="bg-red-600 text-white px-6 py-2 rounded-lg"
-            >
-              Eliminar
-            </button>
-
-            <button
-              onClick={() => {
-                setSelectedReporte(null)
-                setShowDetails(false)
-              }}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* LISTA */}
-      <div className="max-w-4xl mx-auto">
-        {loading && reportes.length === 0 ? (
-          <p className="text-gray-500 text-lg text-center">Cargando…</p>
-        ) : reportes.length === 0 ? (
-          <p className="text-gray-500 text-lg text-center">No hay reportes</p>
-        ) : (
-          <div className="space-y-4">
-            {reportes.map((r) => (
-              <div
-                key={r.uuid}
-                className="bg-white border p-4 rounded-lg hover:shadow-md"
-              >
-                <h3 className="font-bold text-lg">{r.tipo_incidente}</h3>
-                <p>📍 {r.ubicacion}</p>
-                <p className="mt-1">{r.descripcion}</p>
-
-                <span
-                  className={`inline-block mt-2 px-3 py-1 rounded-full text-sm ${getUrgenciaColor(
-                    r.nivel_urgencia
-                  )}`}
-                >
-                  {r.nivel_urgencia}
-                </span>
-
-                <p className="mt-1 text-blue-700 text-sm">
-                  Estado: {r.estado || "pendiente"}
-                </p>
-
-                <div className="flex gap-3 mt-3">
-                  <button
-                    onClick={() => fetchReporteDetalle(r.uuid)}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm"
-                  >
-                    Ver Detalles
-                  </button>
-
-                  <button
-                    onClick={() => handleEliminar(r.uuid)}
-                    className="text-red-600 font-semibold text-sm"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-            ))}
+        {/* ERROR */}
+        {error && (
+          <div className="bg-red-50 border border-red-300 text-red-800 px-6 py-4 rounded-lg mb-8 flex items-center gap-3">
+            <span className="text-2xl">⚠️</span>
+            <span>{error}</span>
           </div>
         )}
+
+        {/* BUSCADOR */}
+        <div className="bg-gray-50 border border-gray-300 rounded-lg p-6 mb-8">
+          <h3 className="text-black font-semibold mb-4">Filtrar Reportes</h3>
+          <div className="flex gap-3 flex-wrap">
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="px-4 py-3 rounded-lg bg-white text-black border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="tipo">Buscar por Tipo</option>
+              <option value="ubicacion">Buscar por Ubicación</option>
+            </select>
+            <input
+              type="text"
+              placeholder={filterType === "tipo" ? "ej: Robo, Accidente..." : "ej: Piso 11, Biblioteca..."}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 px-4 py-3 rounded-lg bg-white text-black placeholder-gray-500 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={() => setSearchTerm("")}
+              className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
+            >
+              Limpiar
+            </button>
+          </div>
+          {searchTerm && (
+            <p className="text-gray-600 text-sm mt-3">
+              Mostrando {reportesFiltrados.length} de {reportes.length} reportes
+            </p>
+          )}
+        </div>
+
+        {/* LISTA DE REPORTES */}
+        <div>
+          {loading && reportes.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">⏳ Cargando reportes...</p>
+            </div>
+          ) : reportesFiltrados.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">
+                {searchTerm ? "No hay reportes que coincidan con tu búsqueda" : "No hay reportes registrados"}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {reportesFiltrados.map((r) => (
+                <div
+                  key={r.uuid}
+                  className="bg-white border border-gray-300 rounded-lg p-6 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <h3 className="text-2xl font-black text-black mb-2">
+                        {r.tipo_incidente}
+                      </h3>
+                      <p className="text-gray-700 mb-2">📍 {r.ubicacion}</p>
+                      <p className="text-gray-600 text-sm">{r.descripcion}</p>
+                    </div>
+                    <span className={`px-4 py-2 rounded-full font-semibold text-sm whitespace-nowrap ml-4 ${
+                      r.nivel_urgencia === 'alta' ? 'bg-red-200 text-red-800' :
+                      r.nivel_urgencia === 'media' ? 'bg-yellow-200 text-yellow-800' :
+                      'bg-green-200 text-green-800'
+                    }`}>
+                      {r.nivel_urgencia?.toUpperCase()}
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2 mb-4">
+                    <span className="px-3 py-1 bg-gray-200 text-gray-800 text-xs rounded-full font-mono">
+                      {r.tipo_usuario}
+                    </span>
+                    <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                      {r.estado || 'pendiente'}
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEliminar(r.uuid)}
+                      className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
+                    >
+                    Eliminar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
