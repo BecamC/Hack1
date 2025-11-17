@@ -21,6 +21,11 @@ def lambda_handler(event, context):
         if not email or not password:
             return {
                 "statusCode": 400,
+                "headers": {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Allow-Methods": "POST,OPTIONS"
+                },
                 "body": json.dumps({"error": "Faltan campos: email, password"})
             }
 
@@ -30,6 +35,11 @@ def lambda_handler(event, context):
         if "Item" not in response:
             return {
                 "statusCode": 401,
+                "headers": {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Allow-Methods": "POST,OPTIONS"
+                },
                 "body": json.dumps({"error": "Email o contraseña incorrectos"})
             }
 
@@ -39,12 +49,22 @@ def lambda_handler(event, context):
         if admin["password"] != password:
             return {
                 "statusCode": 401,
+                "headers": {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Allow-Methods": "POST,OPTIONS"
+                },
                 "body": json.dumps({"error": "Email o contraseña incorrectos"})
             }
 
         # Login exitoso
         return {
             "statusCode": 200,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "POST,OPTIONS"
+            },
             "body": json.dumps({
                 "mensaje": "Login exitoso",
                 "admin": {
@@ -60,5 +80,10 @@ def lambda_handler(event, context):
         traceback.print_exc()
         return {
             "statusCode": 500,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "POST,OPTIONS"
+            },
             "body": json.dumps({"error": str(e)})
         }

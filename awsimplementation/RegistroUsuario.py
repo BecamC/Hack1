@@ -1,7 +1,6 @@
 import boto3
 import json
 import traceback
-import re
 
 dynamodb = boto3.resource("dynamodb")
 usuarios_table = dynamodb.Table("usuarios")
@@ -23,6 +22,11 @@ def lambda_handler(event, context):
         if not email or not password or not nombre:
             return {
                 "statusCode": 400,
+                "headers": {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Allow-Methods": "POST,OPTIONS"
+                },
                 "body": json.dumps({"error": "Faltan campos: email, password, nombre"})
             }
 
@@ -30,6 +34,11 @@ def lambda_handler(event, context):
         if not email.endswith("@utec.edu.pe"):
             return {
                 "statusCode": 400,
+                "headers": {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Allow-Methods": "POST,OPTIONS"
+                },
                 "body": json.dumps({"error": "Solo se aceptan emails @utec.edu.pe"})
             }
 
@@ -37,6 +46,11 @@ def lambda_handler(event, context):
         if len(password) < 6:
             return {
                 "statusCode": 400,
+                "headers": {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Allow-Methods": "POST,OPTIONS"
+                },
                 "body": json.dumps({"error": "La contraseña debe tener al menos 6 caracteres"})
             }
 
@@ -45,6 +59,11 @@ def lambda_handler(event, context):
         if "Item" in response:
             return {
                 "statusCode": 409,
+                "headers": {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Allow-Methods": "POST,OPTIONS"
+                },
                 "body": json.dumps({"error": "El email ya está registrado"})
             }
 
@@ -59,6 +78,11 @@ def lambda_handler(event, context):
 
         return {
             "statusCode": 201,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "POST,OPTIONS"
+            },
             "body": json.dumps({
                 "mensaje": "Usuario registrado exitosamente",
                 "usuario": {"email": email, "nombre": nombre}
@@ -70,5 +94,10 @@ def lambda_handler(event, context):
         traceback.print_exc()
         return {
             "statusCode": 500,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "POST,OPTIONS"
+            },
             "body": json.dumps({"error": str(e)})
         }
