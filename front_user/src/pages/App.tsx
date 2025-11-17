@@ -23,10 +23,9 @@ interface Usuario {
 }
 
 function App() {
-
-  const API_BASE_URL = "https://bjn3x9fv10.execute-api.us-east-1.amazonaws.com/dev"
-  const API_URL = `${API_BASE_URL}/reporte/crear`  
-  const WS_URL = "wss://9uubdx8ktg.execute-api.us-east-1.amazonaws.com/dev"
+  const API_BASE_URL = import.meta.env.VITE_API_URL
+  const API_URL = `${API_BASE_URL}/reporte/crear`
+  const WS_URL = import.meta.env.VITE_WS_URL
 
   const [usuario, setUsuario] = useState<Usuario | null>(null)
   const [incidents, setIncidents] = useState<Incident[]>([])
