@@ -9,6 +9,10 @@ table_name = os.environ.get("TABLE_NAME", "dev-t_reportes")
 reportes_table = dynamodb.Table(table_name)
 connections_table = dynamodb.Table(os.environ.get("CONNECTIONS_TABLE", "Connections"))
 
+# Cliente SNS para enviar notificaciones por email
+sns = boto3.client("sns")
+SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", "")
+
 def lambda_handler(event, context):
     try:
         # El body puede venir como string o dict dependiendo de cómo lo envíe API Gateway
@@ -41,11 +45,50 @@ def lambda_handler(event, context):
             "estado": "pendiente"
         }
 
-        # Guardar en dev-t_reportes
+        # =====================================================
+        # 💾 GUARDAR EN DYNAMODB
+        # =====================================================
         reportes_table.put_item(Item=reporte)
         print(f"✅ Reporte guardado: {uuidv4}")
 
-        # Notificar por WebSocket a todos los conectados
+        # =====================================================
+        # 📧 ENVIAR NOTIFICACIÓN POR EMAIL VIA SNS
+        # =====================================================
+        if SNS_TOPIC_ARN:
+            try:
+                mensaje_email = f"""
+Se ha registrado un nuevo incidente en el Panel UTEC:
+
+UUID: {uuidv4}
+Tipo: {reporte['tipo_incidente']}
+Nivel de urgencia: {reporte['nivel_urgencia']}
+Ubicación: {reporte['ubicacion']}
+Usuario: {reporte['tipo_usuario']}
+Descripción: {reporte['descripcion']}
+Estado: {reporte['estado']}
+Tenant: {tenant_id}
+
+---
+Este es un mensaje automático del sistema de reportes UTEC.
+                """
+
+                sns.publish(
+                    TopicArn=SNS_TOPIC_ARN,
+                    Subject=f"🚨 Nuevo Reporte UTEC - {reporte['tipo_incidente']} ({reporte['nivel_urgencia']})",
+                    Message=mensaje_email
+                )
+
+                print("📨 Notificación SNS enviada correctamente")
+
+            except Exception as e:
+                print(f"⚠️ Error enviando SNS: {str(e)}")
+                traceback.print_exc()
+        else:
+            print("⚠️ SNS_TOPIC_ARN no configurado, no se enviará email")
+
+        # =====================================================
+        # 🔵 NOTIFICAR POR WEBSOCKET (TIEMPO REAL)
+        # =====================================================
         try:
             domain = event["requestContext"]["domainName"]
             stage = event["requestContext"]["stage"]
@@ -65,13 +108,39 @@ def lambda_handler(event, context):
                         ConnectionId=conn["connectionId"],
                         Data=json.dumps(message)
                     )
+                    print(f"✅ WS enviado a {conn['connectionId']}")
                 except Exception as e:
                     print(f"⚠️ Error enviando a {conn.get('connectionId', 'unknown')}: {str(e)}")
         except Exception as e:
             print(f"⚠️ No se pudo notificar por WebSocket: {str(e)}")
+            traceback.print_exc()
 
-        return {"statusCode": 200, "body": json.dumps({"mensaje": "Reporte creado", "uuid": uuidv4, "reporte": reporte})}
+        # =====================================================
+        # ✅ RESPUESTA EXITOSA CON CORS
+        # =====================================================
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "POST,OPTIONS"
+            },
+            "body": json.dumps({
+                "mensaje": "Reporte creado exitosamente",
+                "uuid": uuidv4,
+                "reporte": reporte
+            })
+        }
 
     except Exception as e:
+        print(f"❌ Error general: {str(e)}")
         traceback.print_exc()
-        return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "POST,OPTIONS"
+            },
+            "body": json.dumps({"error": str(e)})
+        }

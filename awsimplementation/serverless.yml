@@ -22,6 +22,7 @@ functions:
           integration: lambda
     environment:
       CONNECTIONS_TABLE: Connections
+      SNS_TOPIC_ARN: !Ref ReportesNotificationTopic
 
   listar:
     handler: ListarReportes.lambda_handler
@@ -116,6 +117,15 @@ functions:
 
 resources:
   Resources:
+
+    #########################################
+    # SNS Topic para notificaciones por email
+    #########################################
+    ReportesNotificationTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: reportes-utec-notifications
+        DisplayName: "Notificaciones de Reportes UTEC"
 
     #########################################
     # DynamoDB Tables
