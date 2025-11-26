@@ -44,14 +44,26 @@ function App() {
 
   // Verificar si hay sesión activa
   useEffect(() => {
-    const usuarioGuardado = localStorage.getItem("usuario")
-    console.log("🔍 Verificando localStorage:", usuarioGuardado)
-    if (usuarioGuardado) {
-      const parsedUsuario = JSON.parse(usuarioGuardado)
-      console.log("✅ Usuario encontrado:", parsedUsuario)
-      setUsuario(parsedUsuario)
+    const usuarioGuardado = localStorage.getItem("usuario");
+    console.log("🔍 Verificando localStorage:", usuarioGuardado);
+
+    // Validar que sea JSON real
+    if (
+      usuarioGuardado &&
+      usuarioGuardado !== "undefined" &&
+      usuarioGuardado !== "null" &&
+      usuarioGuardado.startsWith("{")
+    ) {
+      try {
+        const parsedUsuario = JSON.parse(usuarioGuardado);
+        console.log("✅ Usuario encontrado:", parsedUsuario);
+        setUsuario(parsedUsuario);
+      } catch (e) {
+        console.warn("⚠ No se pudo parsear el usuario guardado.");
+      }
     }
-  }, [])
+  }, []);
+
 
   // ==============================
   // WEBSOCKET CONNECTION
