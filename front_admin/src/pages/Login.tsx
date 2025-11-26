@@ -18,6 +18,10 @@ export default function Login({ onLoginSuccess, apiUrl }: LoginProps) {
     setLoading(true)
 
     try {
+      if (password.length < 6) {
+        throw new Error("La contraseña debe tener al menos 6 caracteres")
+      }
+
       const resp = await fetch(`${apiUrl}/auth/login/admin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -61,6 +65,10 @@ export default function Login({ onLoginSuccess, apiUrl }: LoginProps) {
     try {
       if (!email.endsWith("@utec.edu.pe")) {
         throw new Error("Solo se aceptan emails @utec.edu.pe")
+      }
+
+      if (password.length < 6) {
+        throw new Error("La contraseña debe tener al menos 6 caracteres")
       }
 
       const resp = await fetch(`${apiUrl}/auth/registro/admin`, {
@@ -128,13 +136,16 @@ export default function Login({ onLoginSuccess, apiUrl }: LoginProps) {
             className="w-full px-4 py-3 border border-gray-300 rounded-lg text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
 
-          <input
-            type="password"
-            placeholder="Contraseña"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <div>
+            <input
+              type="password"
+              placeholder="Contraseña"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1 ml-1">Mínimo 6 caracteres</p>
+          </div>
 
           <button
             onClick={mode === "login" ? handleLogin : handleRegistro}
